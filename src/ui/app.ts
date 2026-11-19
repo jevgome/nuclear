@@ -83,7 +83,7 @@ export class App {
     this.model.headAngle = this.headTarget;
     this.viewer = new Viewer(document.getElementById('stage')!, this.model);
     this.sim = new Simulator(this.spec);
-    this.viewer.onSelect = (id) => { this.renderInspector(id); this.syncTreeSelection(); };
+    this.viewer.onSelect = (id) => { this.renderInspector(id); this.syncTreeSelection(); document.getElementById('app')!.classList.toggle('has-sel', !!id); };
     this.viewer.onHover = (id, x, y) => {
       if (!id) { this.tip.hidden = true; return; }
       const p = this.model.partById(id);

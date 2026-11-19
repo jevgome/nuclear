@@ -115,7 +115,7 @@ export class Viewer {
       this.select(id);
     });
     // hover picking is coalesced to at most once per frame and skipped while orbiting
-    el.addEventListener('pointermove', (e) => { this.pendingHover = e; });
+    el.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') this.pendingHover = e; });
     el.addEventListener('pointerleave', () => { this.pendingHover = null; this.onHover(null, 0, 0); });
     this.controls.addEventListener('change', () => this.invalidate());
     new ResizeObserver(() => { this.resize(); this.invalidate(); }).observe(host);

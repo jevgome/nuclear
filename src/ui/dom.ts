@@ -71,7 +71,7 @@ export function iconBtn(name: string, title: string, onClick: () => void, o: { a
   return h('button', {
     class: `ibtn${o.active ? ' on' : ''}${o.cls ? ` ${o.cls}` : ''}${o.label ? ' wide' : ''}`, title, 'aria-label': title,
     onclick: () => onClick(),
-  }, icon(name), o.label ?? null);
+  }, icon(name), o.label ? h('span', { class: 'lbl' }, o.label) : null);
 }
 
 /** Collapsible panel section. */
