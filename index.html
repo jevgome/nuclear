@@ -5,8 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nuclear — TY-0101</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%231b1c1f'/><path d='M12 5 6 8.5v7L12 19l6-3.5v-7L12 5Z' fill='none' stroke='%234f8ef7' stroke-width='1.8'/></svg>" />
+    <style>
+      /* Boot screen — inline so it paints before the app bundle and stylesheet arrive. */
+      html, body { margin: 0; background: #111214; }
+      #boot { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+        background: #111214; color: #e3e5e8; font: 400 12px/1.45 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased; transition: opacity .35s ease, visibility 0s linear .35s; }
+      #boot.done { opacity: 0; visibility: hidden; }
+      #boot .b-card { width: 280px; display: flex; flex-direction: column; align-items: center; }
+      #boot .b-mark { width: 44px; height: 44px; color: #4f8ef7; margin-bottom: 18px; }
+      #boot .b-mark .edge { stroke-dasharray: 60; stroke-dashoffset: 60; animation: b-draw 1.4s ease forwards; }
+      #boot .b-mark .inner { opacity: 0; animation: b-fade .6s ease .9s forwards; }
+      #boot .b-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      #boot .b-sub { color: #6d727b; margin-top: 3px; }
+      #boot .b-bar { position: relative; width: 100%; height: 2px; margin-top: 26px; border-radius: 1px; background: #25272b; overflow: hidden; }
+      #boot .b-bar i { position: absolute; top: 0; bottom: 0; width: 34%; border-radius: 1px; background: #4f8ef7; animation: b-slide 1.15s cubic-bezier(.45,0,.35,1) infinite; }
+      #boot .b-status { margin-top: 10px; height: 16px; color: #a6aab2; font-variant-numeric: tabular-nums; }
+      #boot.error .b-bar i { animation: none; left: 0; width: 100%; background: #e5534b; }
+      #boot.error .b-status { color: #f0857f; height: auto; text-align: center; }
+      @keyframes b-slide { from { left: -34%; } to { left: 100%; } }
+      @keyframes b-draw { to { stroke-dashoffset: 0; } }
+      @keyframes b-fade { to { opacity: .55; } }
+      @media (prefers-reduced-motion: reduce) {
+        #boot .b-mark .edge { animation: none; stroke-dashoffset: 0; }
+        #boot .b-mark .inner { animation: none; opacity: .55; }
+        #boot .b-bar i { animation: none; left: 0; width: 100%; opacity: .5; }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite">
+      <div class="b-card">
+        <svg class="b-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round" aria-hidden="true">
+          <path class="edge" d="M12 3 4.5 7.3v9.4L12 21l7.5-4.3V7.3L12 3Z" stroke-width="1.4" pathLength="60" />
+          <path class="inner" d="M12 12 4.5 7.3M12 12l7.5-4.7M12 12v9" stroke-width="1.1" />
+        </svg>
+        <div class="b-name">Nuclear</div>
+        <div class="b-sub">JENABOM TY-0101 · digital twin</div>
+        <div class="b-bar"><i></i></div>
+        <div class="b-status" id="boot-status">Loading application</div>
+      </div>
+    </div>
     <div id="app">
       <header id="titlebar">
         <div class="brand">
