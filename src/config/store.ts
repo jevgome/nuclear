@@ -1,7 +1,7 @@
 import { defaultSpec, type ScrewdriverSpec } from './screwdriver';
 import type { Param } from './types';
 
-const KEY = 'nuclear.spec.v2'; // v2: shell re-traced from listing photos
+const KEY = 'nuclear.spec.v3'; // v3: nose re-profiled, F/R moved (yaw-corrected listing photos)
 
 /** Merge a saved/imported spec onto the defaults so new fields added later still appear. */
 export function mergeSpec(saved: unknown): ScrewdriverSpec {

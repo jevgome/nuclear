@@ -23,7 +23,7 @@ Sources: **BOX** = retail box photos · **OWNER** = project owner's answers · *
 
 - **Controls and where they sit** (traced from the listing photos at 4.72 px/mm):
   - **Trigger ("Switch Button"):** red paddle on the grip front, 54–86 mm.
-  - **F/R button ("Positive and Negative Switch"):** red push-through pill at 87–94 mm, visible on both sides.
+  - **F/R button ("Positive and Negative Switch"):** red push-through pill at ≈84.5–91.5 mm (front edge level with the trigger front), visible on both sides.
   - **PUSH swivel release ("Rotary Switch"):** on top of the head just ahead of the seam, with the ⟳ icon.
   - **Pilot lamp:** front of the butt hook. **Micro-USB:** butt end face.
   - **LED headlamp:** in a chin under the barrel, 163–178 mm.
@@ -45,10 +45,12 @@ Sources: **BOX** = retail box photos · **OWNER** = project owner's answers · *
 - **Nose:** a round cone with a hard step at the shoulder (186 mm) and a break at 196.5 mm. The butt end face is flat.
 - **Accuracy:** facet depths and angles are read by eye from the photos (±1 mm). Widths are still assumed (no top view).
 - **Raised relief is real geometry** (`src/geometry/relief.ts`, flat-shaded swept ribs that follow the shell surface):
-  - **Barrel:** glossy raised logo/label plate with chamfered walls; raised frame around the plate; upper and lower ledges; 6 stepped slats on the lower flank; 6 short ribs across the top.
-  - **Grip:** front slats that wrap over the front face and stop at the trigger slot; raised frame band on each side; back-insert lip and diagonal ribs.
-- **Relief sources and accuracy:** positions and counts come from the 8 listing images and the listing's product video. The top ribs are visible in the video and the 47-piece render. Rib heights (0.5–0.9 mm) and widths are estimated (±0.5 mm).
-- **Still painted, not modelled:** the back-insert parting groove, the ⟳ icon and screw heads.
+  - **Barrel:** the side is a recessed pocket from the nose crease back to the seam. Its upper edge is a long step that rises toward the rear and turns down along the seam; its lower edge is a ledge. The glossy logo/label plate sits in the rear of the pocket, with a raked front edge and a rear edge parallel to the seam. Below the ledge are 5 stepped planks (≈10.4 mm pitch, the last cut by the seam), and there are 7 low ribs across the top.
+  - **Grip:** stepped front slats (≈5.4 mm pitch) whose step lines lean with the upper end toward the butt. They wrap over the front face and stop at the trigger slot and around the F/R pill. There's a raised frame band on each side, and a back-insert lip that is wide at the butt and narrows toward the seam. 11 long diagonal ribs on the insert have their rear end nearer the seam.
+  - **Geometry:** each rib vertex sits on the shell at its own offset, so wide planks follow curved regions. Step profiles face the same way on both halves.
+- **Relief sources and accuracy:** positions and counts come from the 8 listing images and the listing's product video. The top ribs show in the video and the 47-piece render but not in the main listing photos, so they are kept low. Step heights (1.0–1.3 mm) and widths are estimated (±0.5 mm).
+- **Yaw in the straight listing photo:** the straight photo (61Tv) is turned ≈17° about the vertical, so features on the side surface appear ≈0.3·|z| mm nearer the butt than the silhouette does. Side-feature positions (F/R, screw holes, plate, slat lines) are corrected for this; silhouette features (trigger, PUSH, outline) are not affected.
+- **Still painted, not modelled:** the back-insert parting groove, the ⟳ icon and the counterbored screw holes (the screw heads sit out of sight).
 
 ## Engineering assumptions (reasonable, but not measured)
 

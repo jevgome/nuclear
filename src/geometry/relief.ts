@@ -32,16 +32,20 @@ const PROFILES: Record<RibProfile, (w: number, h: number) => [number, number][]>
   ridge: (w, h) => [[-w / 2, -0.35], [-w * 0.28, h], [w * 0.28, h], [w / 2, -0.35]],
 };
 
-/** Resample a 2D polyline every `step` mm. */
-function resample(pts: [number, number][], step: number): [number, number][] {
+/** Resample a 2D polyline every `step` mm, carrying an optional per-vertex value (width). */
+function resample(pts: [number, number][], step: number, vals?: number[]): { p: [number, number][]; v: number[] } {
   const out: [number, number][] = [pts[0]];
+  const ov: number[] = [vals ? vals[0] : 1];
   for (let i = 1; i < pts.length; i++) {
     const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
     const L = Math.hypot(bx - ax, by - ay);
     const n = Math.max(1, Math.ceil(L / step));
-    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
+    for (let k = 1; k <= n; k++) {
+      out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
+      ov.push(vals ? vals[i - 1] + ((vals[i] - vals[i - 1]) * k) / n : 1);
+    }
   }
-  return out;
+  return { p: out, v: ov };
 }
 
 /**
@@ -50,18 +54,29 @@ function resample(pts: [number, number][], step: number): [number, number][] {
  */
 export function ribGeometry(
   stations: Station[], path: [number, number][], side: 1 | -1, w: number, h: number, profile: RibProfile = 'box',
+  widths?: number[],
 ): THREE.BufferGeometry {
-  const pts = resample(path, 0.8);
-  const frames = pts.map(([x, y]) => surfaceFrame(stations, x, y, side));
+  const rs = resample(path, 0.8, widths);
+  const pts = rs.p;
   const prof = PROFILES[profile](w, h);
-  const rings: THREE.Vector3[][] = frames.map((f, i) => {
-    const a = frames[Math.max(0, i - 1)].p, b = frames[Math.min(frames.length - 1, i + 1)].p;
-    const T = b.clone().sub(a).normalize();
-    const B = new THREE.Vector3().crossVectors(T, f.n).normalize();
-    return prof.map(([u, v]) => f.p.clone().addScaledVector(B, u).addScaledVector(f.n, v));
+  // Each profile vertex is placed on the shell at its own across-offset (in side-view mm) and
+  // lifted along the local normal there, so wide planks hug strongly curved regions instead of
+  // floating off them. The across direction is mirrored with the side so an asymmetric profile
+  // (saw) faces the same way in tool coordinates on both halves; winding flipped to match.
+  const rings: THREE.Vector3[][] = pts.map(([x, y], i) => {
+    const [ax, ay] = pts[Math.max(0, i - 1)], [bx, by] = pts[Math.min(pts.length - 1, i + 1)];
+    const L = Math.hypot(bx - ax, by - ay) || 1;
+    const cx = (by - ay) / L, cy = -(bx - ax) / L; // across, in (x, y)
+    const ws = widths ? rs.v[i] / w : 1;
+    return prof.map(([u, v]) => {
+      const f = surfaceFrame(stations, x + cx * u * ws, y + cy * u * ws, side);
+      return f.p.addScaledVector(f.n, v);
+    });
   });
   const pos: number[] = [];
-  const tri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  const tri = side > 0
+    ? (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
+    : (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => pos.push(a.x, a.y, a.z, c.x, c.y, c.z, b.x, b.y, b.z);
   const m = prof.length;
   for (let i = 0; i < rings.length - 1; i++)
     for (let k = 0; k < m; k++) {
@@ -149,10 +164,26 @@ export interface ReliefItem {
   w: number;
   h: number;
   profile: RibProfile;
+  /** optional per-vertex width (mm), overrides w along the path */
+  widths?: number[];
 }
 
-/** Logo/label plate corners (top-rear, top-front, bottom-front, bottom-rear) — PHOTO-S. */
-export const PLATE: [number, number][] = [[113.3, 14.7], [155.7, 8.4], [162, -5.9], [120.8, 1.5]];
+const DEFAULT_SEAM = { x0: 109.6, beta: (36 * Math.PI) / 180 };
+type Seam = { x0: number; beta: number };
+/** x of the seam line at height y (+Y side nearer the butt), as in shell.ts. */
+const seamAt = (seam: Seam, y: number) => seam.x0 - y * Math.tan(seam.beta);
+
+/**
+ * Logo/label plate corners (top-rear, top-front, bottom-front, bottom-rear).
+ * Listing photos: a long glossy plate whose front edge is raked (top corner further back than
+ * the bottom one) and whose rear edge runs parallel to the swivel seam, just inside the frame
+ * band that wraps down along the seam.
+ */
+export function plateCorners(seam: Seam = DEFAULT_SEAM): [number, number][] {
+  return [[seamAt(seam, 13.4) + 11, 13.4], [154, 10.2], [161, -6.6], [seamAt(seam, 3.2) + 11, 3.2]];
+}
+/** @deprecated use plateCorners(seam) */
+export const PLATE: [number, number][] = plateCorners();
 
 /** Height y of the outer surface where |z| = zc on the upper (+Y) half — used to stop ribs at a slot edge. */
 function yAtZTop(stations: Station[], x: number, zc: number) {
@@ -167,42 +198,100 @@ function yAtZTop(stations: Station[], x: number, zc: number) {
   return profileAt(stations, x).top;
 }
 
-export function reliefItems(stations: Station[], trigger: { start: number; end: number; width: number } = { start: 54, end: 86, width: 10 }): ReliefItem[] {
+/** Back-insert width (mm of side-view height above the bottom outline): wide at the butt, narrow at the seam. */
+export const insertWidth = (x: number) => 15 - Math.min(1, Math.max(0, (x - 15) / 95)) * 7.5;
+
+export function reliefItems(
+  stations: Station[],
+  trigger: { start: number; end: number; width: number } = { start: 54, end: 86, width: 10 },
+  seam: Seam = DEFAULT_SEAM,
+  fr: { x: number; y: number; length: number; width: number } = { x: 88, y: 9, length: 12.5, width: 7 },
+): ReliefItem[] {
   const top = (x: number) => profileAt(stations, x).top;
   const bot = (x: number) => profileAt(stations, x).bottom;
   const out: ReliefItem[] = [];
-  // --- barrel ---
-  // raised frame around the plate (the plate sits in a ledge, d_main / d_hero)
-  const P = PLATE, g = 1.5;
-  out.push({ part: 'head', w: 1.5, h: 0.8, profile: 'ridge', path: [
-    [P[0][0] - g, P[0][1] + g], [P[1][0] + g * 0.6, P[1][1] + g], [P[2][0] + g, P[2][1] - g], [P[3][0] - g * 0.6, P[3][1] - g], [P[0][0] - g, P[0][1] + g],
+  const along = (y0: number, y1: number, off: number, n = 12): [number, number][] => {
+    const pts: [number, number][] = [];
+    for (let k = 0; k <= n; k++) { const y = y0 + ((y1 - y0) * k) / n; pts.push([seamAt(seam, y) + off, y]); }
+    return pts;
+  };
+
+  /* --- barrel ------------------------------------------------------------------------------- */
+  // The side of the barrel is a recessed pocket running from the nose crease back to the seam
+  // (listing hero shots 61ADW / 61qjy / 61Tv). Its upper edge is a long step that rises gently
+  // toward the rear and then turns down along the seam; its lower edge is a ledge above the
+  // stepped planks. Both are modelled as raised steps whose wall faces into the pocket.
+  // upper step: rearward then down along the seam ('saw' high edge = pocket wall)
+  out.push({ part: 'head', w: 4.2, h: 1.25, profile: 'saw', path: [
+    [184.2, 8.6], [176, 10.2], [164, 12.2], [150, 14], [136, 15.5], [124, 16.8],
+    [seamAt(seam, 18) + 12.2, 18],
   ] });
-  // upper ledge: sweeps from the nose shoulder back above the plate toward the PUSH button
-  out.push({ part: 'head', w: 1.6, h: 0.9, profile: 'box', path: [[185.4, 13.5], [170, 15.2], [150, 17.2], [128, 19.2], [114, 20.6]] });
-  // lower ledge under the plate, from the nose shoulder to the joint
-  out.push({ part: 'head', w: 1.6, h: 0.9, profile: 'box', path: [[185.4, -9], [165, -8.4], [145, -6.6], [126, -4.4], [117, -3.2]] });
-  // stepped slats on the lower flank (6 in the main listing photos)
-  for (let x = 120; x <= 156; x += 6.6) out.push({ part: 'head', w: 3.4, h: 0.8, profile: 'saw', path: [[x, -10.5], [x + 5.5, Math.max(-bot(x + 5.5) + 3.2, -21.5)]] });
-  // short transverse ribs across the top (product video side shots, d_hero)
-  for (let x = 134; x <= 164; x += 6) out.push({ part: 'head', w: 1.2, h: 0.6, profile: 'ridge', path: [[x, top(x) - 0.4], [x - 1.8, top(x) - 7.5]] });
-  // --- grip ---
-  // slats wrapping around the front of the grip (d_pist, PHOTO-S): side → over the front centre
-  for (let x = 23; x <= 79; x += 6.2) {
-    const xe = x + 6;
-    const inSlot = xe > trigger.start - 2 && xe < trigger.end + 2;
-    // stop at the trigger slot edge; elsewhere wrap over the front centre
-    const yEnd = inSlot ? yAtZTop(stations, xe, trigger.width / 2 + 1.2) : top(xe) - 0.05;
-    out.push({ part: 'handle', w: 3.0, h: 0.6, profile: 'saw', path: [[x, 3.5], [x + 4.6, Math.min(yEnd - 0.5, top(x + 4.6) - 5)], [xe, yEnd]] });
+  out.push({ part: 'head', w: 3.6, h: 1.25, profile: 'saw', path: [
+    [seamAt(seam, 18.4) + 10.4, 18.4], [seamAt(seam, 16.6) + 7.6, 16.4], ...along(14.2, -9.2, 6.8),
+  ] });
+  // lower ledge (wall faces up into the pocket)
+  out.push({ part: 'head', w: 3, h: 1.05, profile: 'saw', path: [
+    [184.2, -8.6], [172, -9.4], [158, -10], [140, -10.4], [seamAt(seam, -10.4) + 6.4, -10.4],
+  ] });
+  // stepped planks on the lower flank (≈10.7 mm pitch; the step lines lean so their lower end is
+  // further forward). Each plank is high at its step line and ramps down toward the butt; the
+  // last one is cut off by the seam.
+  {
+    const lean = 4, pitch = 10.4, yt = -12.4;
+    for (let k = 0; k < 5; k++) {
+      const xt = 167.5 - pitch * k; // step line at its upper end
+      const y0 = k === 0 ? -16 : yt;
+      const yb = -bot(xt + lean) + 2.8;
+      const line = (y: number) => xt + ((y - yt) / (yb - yt)) * lean;
+      const c: [number, number][] = [], ws: number[] = [];
+      for (let i = 0; i <= 10; i++) {
+        const y = y0 + ((yb - y0) * i) / 10;
+        const xf = line(y) - 0.2, xr = Math.max(line(y) - pitch + 0.2, seamAt(seam, y) + 1.4);
+        c.push([(xf + xr) / 2, y]); ws.push(Math.max(0.6, xf - xr));
+      }
+      out.push({ part: 'head', w: pitch, h: 1.15, profile: 'saw', path: c, widths: ws });
+    }
   }
-  // raised frame band down the side of the grip (bounds the ribbed front zone)
+  // transverse ribs across the upper facet (47-piece listing render, product video)
+  // (low: they show in the 47-piece render but not in the main listing photos)
+  for (let x = 127; x <= 165; x += 6.3)
+    out.push({ part: 'head', w: 1.6, h: 0.5, profile: 'ridge', path: [[x, top(x) - 0.6], [x - 1.2, 21.8], [x - 2.4, 19.4]] });
+
+  /* --- grip --------------------------------------------------------------------------------- */
+  // front slats: stepped planks across the trigger side. Step lines lean so their upper (+Y,
+  // front-face) end is nearer the butt (straight listing photo 61Tv; pistol photos 61ADW/71zusp).
+  {
+    const pitch = 5.4, lean = 5.6;
+    const frTop = fr.y + fr.length / 2 + 1.2; // slats clear the F/R pill
+    for (let xt = 33.2; xt <= 93.5; xt += pitch) {
+      const inSlot = xt > trigger.start - 2.5 && xt < trigger.end + 2.5;
+      const yEnd = inSlot ? yAtZTop(stations, xt, trigger.width / 2 + 1.2) - 0.7 : top(xt) - 0.05;
+      // stop short of the seam on the trigger side
+      if (xt > seamAt(seam, yEnd) - 1.6) continue;
+      // plank spans [xLine − pitch, xLine]; if that overlaps the F/R pill, start above it
+      const nearFr = (x: number) => x > fr.x - fr.width / 2 - 1.2 && x - pitch < fr.x + fr.width / 2 + 1.2;
+      let yb = 4.2;
+      const line = (y: number) => xt + ((yEnd - y) / (yEnd - 4.2)) * lean;
+      if (nearFr(line(4.2)) || nearFr(line(frTop))) yb = frTop;
+      if (yEnd - yb < 3) continue;
+      const mid: [number, number] = [line((yb + yEnd) / 2), (yb + yEnd) / 2];
+      const path: [number, number][] = [[xt, yEnd], mid, [Math.min(line(yb), seamAt(seam, yb) - 1.8), yb]];
+      out.push({ part: 'handle', w: pitch - 0.4, h: 1.05, profile: 'saw', path: path.map(([x, y]) => [x - pitch / 2, y] as [number, number]) });
+    }
+  }
+  // raised frame band bounding the slatted zone; at the butt it sweeps down toward the toe
   const band: [number, number][] = [];
-  for (let x = 6; x <= 92; x += 2) band.push([x, Math.min(top(x) - 6, 2.2 + Math.max(0, 20 - x) * 0.35)]);
-  out.push({ part: 'handle', w: 2.2, h: 0.8, profile: 'ridge', path: band });
-  // back insert: lip along its border + diagonal ribs (PHOTO-P "Handle")
+  for (let x = 6; x <= 94; x += 2) band.push([x, Math.min(top(x) - 6, 2.6 + Math.max(0, 22 - x) * 0.42)]);
+  out.push({ part: 'handle', w: 1.8, h: 0.95, profile: 'box', path: band });
+  // back insert: raised border lip (wide at the butt, narrowing toward the seam) …
   const lip: [number, number][] = [];
-  for (let x = 5; x <= 96; x += 2) lip.push([x, -(bot(x) - 8.6)]);
-  out.push({ part: 'handle', w: 1.4, h: 0.7, profile: 'box', path: lip });
-  for (let x = 12; x <= 62; x += 3.6) out.push({ part: 'handle', w: 1.1, h: 0.55, profile: 'ridge', path: [[x, -bot(x) + 0.3], [x + 2.2, -bot(x + 2.2) + 6.5]] });
+  for (let x = 4; x <= 112; x += 2) lip.push([x, -(bot(x) - insertWidth(x))]);
+  out.push({ part: 'handle', w: 2.4, h: 1.2, profile: 'ridge', path: lip });
+  // … and 11 long diagonal ribs on its lower half; the back end of each rib is nearer the seam
+  for (let k = 0; k < 11; k++) {
+    const x = 14 + 4.3 * k;
+    out.push({ part: 'handle', w: 1.35, h: 1.05, profile: 'ridge', path: [[x + 4.4, -bot(x + 4.4) + 0.25], [x + 2, -bot(x + 2) + 5], [x, -bot(x) + Math.min(10, insertWidth(x) - 3)]] });
+  }
   return out;
 }
 

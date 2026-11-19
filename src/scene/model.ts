@@ -13,7 +13,7 @@ import {
   profileAt, sectionPoint, seamNormal, seamPlateGeometry, seamX, shellHalfGeometry, type SeamDef,
 } from '../geometry/shell';
 import { labelTexture, shellTextures } from '../geometry/textures';
-import { PLATE, plateGeometry, plateTexture, reliefItems, ribGeometry } from '../geometry/relief';
+import { plateCorners, plateGeometry, plateTexture, reliefItems, ribGeometry } from '../geometry/relief';
 
 export type PartGroup = 'Shell' | 'Motor' | 'Gearbox' | 'Output' | 'Electrical' | 'Controls' | 'Custom';
 export type XrayRole = 'shell' | 'housing' | 'internal';
@@ -264,10 +264,11 @@ export class ScrewdriverModel {
       const sx = (x: number) => (x > 150 ? x + shift : x);
       const ribGeos: THREE.BufferGeometry[] = [];
       const C = this.spec.controls;
-      for (const it of reliefItems(stations, { start: C.triggerStart.value, end: C.triggerEnd.value, width: C.triggerWidth.value })) {
+      for (const it of reliefItems(stations, { start: C.triggerStart.value, end: C.triggerEnd.value, width: C.triggerWidth.value }, seam,
+        { x: C.frX.value, y: C.frY.value, length: C.frLength.value, width: C.frWidth.value })) {
         if (it.part !== part) continue;
         const path = it.path.map(([x, y]) => [sx(x), y] as [number, number]);
-        ribGeos.push(ribGeometry(stations, path, side, it.w, it.h, it.profile));
+        ribGeos.push(ribGeometry(stations, path, side, it.w, it.h, it.profile, it.widths));
       }
       // one draw call per shell half for all of its relief
       if (ribGeos.length) {
@@ -276,7 +277,7 @@ export class ScrewdriverModel {
         if (merged) g.add(this.mesh(merged, MAT.relief()));
       }
       if (part === 'head') {
-        const pg = plateGeometry(stations, PLATE.map(([x, y]) => [sx(x), y] as [number, number]), side, 0.75, 0.6);
+        const pg = plateGeometry(stations, plateCorners(seam).map(([x, y]) => [sx(x), y] as [number, number]), side, 0.75, 0.6);
         g.add(this.mesh(pg.top, MAT.plate(side)), this.mesh(pg.walls, MAT.plateEdge()));
       }
       if (part === 'handle') {
@@ -451,7 +452,7 @@ export class ScrewdriverModel {
     this.add(this.handle, fr, {
       id: 'fr-button', name: 'F/R button ("Positive and Negative Switch")', group: 'Controls',
       desc: 'Red push-through pill above the trigger, visible on both sides; push from one side for forward, the other for reverse. Marked ▶▶.',
-      confidence: 'measured', source: 'PHOTO-S position (87–94 mm, 2.5–15 mm above axis); both sides visible in listing photos; TEARDOWN red ▲▲ part',
+      confidence: 'measured', source: 'PHOTO-S position (front edge level with the trigger front, yaw-corrected ≈84.5–91.5 mm; PHOTO-P agrees), 2.5–15 mm above axis; both sides visible in listing photos; TEARDOWN red ▲▲ part',
       dims: `${C.frLength.value} × ${C.frWidth.value} mm pill`,
     }, [0, 0, 60]);
 

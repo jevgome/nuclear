@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Station } from '../config/types';
 import { profileAt, tForY, UV_LENGTH } from './shell';
+import { insertWidth } from './relief';
 
 /**
  * Procedural surface detail for the shell, painted in (x, y) millimetres of the straight
@@ -92,12 +93,12 @@ export function shellTextures(stations: Station[], side: 1 | -1, key: string): S
 
   // ---- grip back insert: deep parting groove + diagonal ribs (PHOTO-P "Handle") ----
   const border: [number, number][] = [];
-  for (let x = 5; x <= 98; x += 2) border.push([x, -(profileAt(stations, x).bottom - 7.5)]);
+  for (let x = 4; x <= 112; x += 2) border.push([x, -(profileAt(stations, x).bottom - insertWidth(x) - 1.5)]);
   groove(border, 9, 30, 0.7);
 
   // ---- "⟳" rotate icon next to PUSH (PHOTO-P), engraved ----
   for (const [ctx, style] of [[bmp, 'rgb(80,80,80)'], [col, 'rgba(255,255,255,0.09)']] as const) {
-    local(ctx, 101.5, 15.5, 0, () => {
+    local(ctx, 100.4, 19.2, 0, () => {
       ctx.strokeStyle = style; ctx.lineWidth = 0.45; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(0, 0, 2.4, 0.6, Math.PI * 1.8); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(2.4 * Math.cos(0.6) - 1.1, 2.4 * Math.sin(0.6) + 0.2);
@@ -105,28 +106,32 @@ export function shellTextures(stations: Station[], side: 1 | -1, key: string): S
     });
   }
 
-  // ---- screw holes, lanyard hole ----
-  const hole = (x: number, y: number, rmm: number, screw: boolean) => {
-    const disc = (ctx: CanvasRenderingContext2D, fill: string, r: number) =>
+  // ---- screw holes (counterbored: the listing photos show plain glossy-black holes, the screw
+  // heads sit deep inside), lanyard hole ----
+  const hole = (x: number, y: number, rmm: number) => {
+    const disc = (ctx: CanvasRenderingContext2D, fill: string | CanvasGradient, r: number) =>
       local(ctx, x, y, 0, () => { ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); });
-    disc(col, '#030303', rmm);
-    disc(bmp, 'rgb(20,20,20)', rmm);
-    disc(rgh, 'rgb(230,230,230)', rmm);
-    if (screw) {
-      disc(col, '#2a2b2e', rmm * 0.55);
-      local(col, x, y, 0, () => {
-        col.strokeStyle = '#0a0a0a'; col.lineWidth = rmm * 0.14;
-        col.beginPath(); col.moveTo(-rmm * 0.4, 0); col.lineTo(rmm * 0.4, 0); col.moveTo(0, -rmm * 0.4); col.lineTo(0, rmm * 0.4); col.stroke();
-      });
-    }
+    // chamfered rim: a thin lighter ring just outside the bore
+    disc(bmp, 'rgb(150,150,150)', rmm * 1.22);
+    disc(col, '#2c2d30', rmm * 1.18);
+    disc(col, '#020202', rmm);
+    disc(bmp, 'rgb(8,8,8)', rmm);
+    disc(rgh, 'rgb(70,70,70)', rmm); // glossy inside
+    local(col, x, y, 0, () => {
+      const g = col.createRadialGradient(-rmm * 0.35, -rmm * 0.35, 0, 0, 0, rmm);
+      g.addColorStop(0, 'rgba(60,62,66,0.55)'); g.addColorStop(0.5, 'rgba(10,10,10,0)');
+      col.fillStyle = g; col.beginPath(); col.arc(0, 0, rmm, 0, Math.PI * 2); col.fill();
+    });
   };
-  hole(15, 20.5, 1.9, false); // lanyard hole through the butt hook
-  hole(54.7, 15.5, 2.1, true);
-  hole(96.4, 2.5, 2.1, true);
-  hole(111.9, -20.8, 2.1, true);
-  hole(30, -6, 2.1, true);
-  hole(191.5, 12.5, 1.6, true);
-  hole(191.5, -10.5, 1.6, true);
+  // positions from the straight listing photo, corrected for its ≈17° yaw (side-surface features
+  // appear ≈0.3·|z| mm nearer the butt than the silhouette)
+  hole(8, 21, 2.2); // lanyard hole through the butt hook
+  hole(47.5, 16, 2.3);
+  hole(95.5, 1, 2.3);
+  hole(109.5, -23, 2.3);
+  hole(30, -6, 2.3);
+  hole(191.5, 12.5, 1.6);
+  hole(191.5, -10.5, 1.6);
 
   for (const ctx of all) void ctx;
   const tex = (c: HTMLCanvasElement, srgb: boolean) => {
