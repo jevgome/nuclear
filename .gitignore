@@ -1,0 +1,8 @@
+node_modules
+dist
+*.log
+
+# Source materials (kept local, not published)
+*.docx
+IMG_*.jpg
+amazon_link.txt

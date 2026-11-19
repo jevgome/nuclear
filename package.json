@@ -1,0 +1,25 @@
+{
+  "name": "nuclear",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Digital twin / visualizer / simulator for the JENABOM TY-0101 3.6V cordless screwdriver",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "mp4-muxer": "^5.2.2",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}
