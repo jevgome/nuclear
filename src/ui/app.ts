@@ -361,8 +361,7 @@ export class App {
     const bitSel = select(BIT_TYPES.map((b) => [b.id, b.name] as [BitType, string]), this.opts.bit, (b) => { this.opts.bit = b; this.rebuild(); });
 
     return h('div', {},
-      section('Browser', tree),
-      section('Display',
+      sectionEx('Display', { open: true },
         prop('Explode', slider),
         prop('Section offset', secPos, 'Enable the section cut from the viewport toolbar'),
         prop('Bit', bitSel),
@@ -372,6 +371,7 @@ export class App {
         prop('Quality', seg<'high' | 'balanced' | 'fast'>([['high', 'High'], ['balanced', 'Balanced'], ['fast', 'Fast']], v.quality, (x) => { v.setQuality(x); }).el,
           'High adds ambient occlusion when the view is still. Use Fast on integrated graphics.'),
       ),
+      sectionEx('Browser', { open: false, key: 'model:browser' }, tree),
       sectionEx('Confidence key', { open: false },
         h('div', { class: 'legend' }, ...Object.keys(CONF_LABEL).map((c) => h('div', { class: 'legend-r' }, conf(c), h('span', { class: 'muted' }, CONF_HELP[c])))),
       ),

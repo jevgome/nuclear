@@ -78,8 +78,15 @@ export function iconBtn(name: string, title: string, onClick: () => void, o: { a
 export function section(title: string, ...children: (Node | null | false | undefined)[]) {
   return sectionEx(title, { open: true }, ...children);
 }
-export function sectionEx(title: string, o: { open?: boolean; aside?: Node | null; info?: string }, ...children: (Node | null | false | undefined)[]) {
-  const d = h('details', { class: 'sec', open: o.open !== false });
+/** Remembers sections the user opened/closed, so re-rendering a panel doesn't reset them. */
+const sectionState = new Map<string, boolean>();
+
+export function sectionEx(
+  title: string, o: { open?: boolean; aside?: Node | null; info?: string; key?: string }, ...children: (Node | null | false | undefined)[]
+) {
+  const key = o.key ?? title;
+  const d = h('details', { class: 'sec', open: sectionState.get(key) ?? o.open !== false });
+  d.addEventListener('toggle', () => sectionState.set(key, d.open));
   d.append(
     h('summary', {}, icon('chevron', 12), h('span', { class: 'sec-t' }, title),
       o.info ? h('span', { class: 'info', title: o.info }, icon('info', 13)) : null,
